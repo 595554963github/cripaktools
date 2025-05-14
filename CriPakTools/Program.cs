@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -11,18 +11,17 @@ namespace CriPakTools
         static void Main(string[] args)
         {
             Console.WriteLine("CriPakTools\n");
-            Console.WriteLine("根据Falo在Xentax论坛上发布的代码(请参阅readme.txt),由FuwaNovels的Nanashi3修改.\nEpelKnight的插入代码\n\n由哔哩哔哩up主偷吃布丁的涅普缇努修改和汉化");
+            Console.WriteLine("根据Falo在Xentax论坛上发布的代码(请参阅readme.txt),由FuwaNovels的Nanashi3修改.\nEpelKnight的插入代码");
 
             if (args.Length == 0)
             {
-                Console.WriteLine("CriPakTool使用方法:\n");               
+                Console.WriteLine("CriPakTool使用方法:\n");
                 Console.WriteLine("CriPakTool.exe 输入文件 EXTRACT_ME - 提取文件.\n");
                 Console.WriteLine("CriPakTool.exe 输入文件 ALL - 提取所有文件.\n");
                 Console.WriteLine("CriPakTool.exe 输入文件 REPLACE_ME REPLACE_WITH [输出文件] - 用REPLACE_ME代替REPLACE_WITH.可选将其输出为新的CPK文件，否则将被替换.\n");
                 return;
             }
 
-            // 确保至少有两个参数，才进行后续操作，防止访问args[1]时越界
             if (args.Length < 2)
             {
                 Console.WriteLine("参数数量不足，无法执行操作，请按照使用方法提供参数。");
@@ -30,6 +29,7 @@ namespace CriPakTools
             }
 
             string cpk_name = args[0];
+            string cpkDirectory = Path.GetDirectoryName(cpk_name);
 
             CPK cpk = new CPK(new Tools());
             cpk.ReadCPK(cpk_name);
@@ -39,9 +39,13 @@ namespace CriPakTools
             string extractMe = args[1];
             string unpackFolderName = "";
             List<FileEntry> entries = null;
+
+            string baseName = Path.GetFileNameWithoutExtension(cpk_name);
+            baseName = baseName.Replace('.', '_');
+            unpackFolderName = Path.Combine(cpkDirectory, baseName + "_unpack");
+
             if (extractMe.ToUpper() == "ALL")
             {
-                unpackFolderName = Path.ChangeExtension(cpk_name, "unpack");
                 Directory.CreateDirectory(unpackFolderName);
                 entries = cpk.FileTable.Where(x => x.FileType == "FILE").ToList();
             }
@@ -90,7 +94,6 @@ namespace CriPakTools
             }
             else
             {
-                // 确保至少有三个参数，才进行替换相关操作，防止访问args[2]时越界
                 if (args.Length < 3)
                 {
                     Console.WriteLine("插入的用法CriPakTools IN_CPK REPLACE_THIS REPLACE_WITH [OUT_CPK]");
@@ -105,7 +108,15 @@ namespace CriPakTools
                 string outputName = fi.FullName + ".tmp";
                 if (args.Length >= 4)
                 {
-                    outputName = fi.DirectoryName + "\\" + args[3];
+                    bool isFullyQualified = args[3].IndexOf(':') > 0 || args[3].StartsWith(@"\\");
+                    if (!isFullyQualified)
+                    {
+                        outputName = Path.Combine(cpkDirectory, args[3]);
+                    }
+                    else
+                    {
+                        outputName = args[3];
+                    }
                 }
 
                 BinaryWriter newCPK = new BinaryWriter(File.OpenWrite(outputName));
@@ -118,7 +129,6 @@ namespace CriPakTools
                     {
                         if (entries[i].FileType == "FILE")
                         {
-                            // I'm too lazy to figure out how to update the ContextOffset position so this works :)
                             if ((ulong)newCPK.BaseStream.Position < cpk.ContentOffset)
                             {
                                 ulong padLength = cpk.ContentOffset - (ulong)newCPK.BaseStream.Position;
@@ -162,7 +172,6 @@ namespace CriPakTools
                     }
                     else
                     {
-                        // Content is special.... just update the position
                         cpk.UpdateFileEntry(entries[i]);
                     }
                 }
